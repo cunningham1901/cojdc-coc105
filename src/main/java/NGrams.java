@@ -75,7 +75,7 @@ public class NGrams extends Configured implements Tool {
     }
 
     public static void main(String[] args) throws Exception {
-        int res = ToolRunner.run(new Configuration(), new NGrams(), args);
+        int res = ToolRunner.run(new NGrams(), args);
         System.exit(res);
     }
 }
