@@ -28,15 +28,13 @@ public class NGrams extends Configured implements Tool {
 
             //Get n from cmd line argument e.g.: -D ngram_n=2
             Configuration conf = context.getConfiguration();
-            int n = conf.getInt("ngram_n", 2);
+            int n = conf.getInt("ngram.n", 2);
 
             // Loop through line, if not possible to create any n-grams (i.e. line.length < n) then skip line
             for (int i=0; i<(words.length-(n-1)); i++) {
                 StringBuilder ngram_string = new StringBuilder();
                 //Build the n-gram
-                for (int j=0; j<n; j++) {
-                    ngram_string.append(words[i + j]).append(" ");
-                }
+                for (int j=0; j<n; j++) ngram_string.append(words[i + j]).append(" ");
                 ngram_string.deleteCharAt(ngram_string.length()-1);
                 ngram.set(ngram_string.toString());
                 context.write(ngram, one);
