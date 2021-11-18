@@ -26,7 +26,7 @@ public class NGrams {
             for (int i=0; i<(words.length-(n-1)); i++) {
                 String word1 = words[i];
                 String word2 = words[i+(n-1)];
-                ngram.set(word1+"+" +word2);
+                ngram.set(word1+" " +word2);
                 context.write(ngram, one);
             }
         }
