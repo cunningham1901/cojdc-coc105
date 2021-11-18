@@ -26,7 +26,7 @@ public class NGrams extends Configured implements Tool {
             //Split string into array, removing punctuation & whitespace
             String[] words = value.toString().replaceAll("\\p{Punct}", " ").trim().split("\\s+");
 
-            //Get n from cmd line argument e.g.: -D ngram_n=2
+            //Get n from cmd line argument e.g.: -D ngram.n=2
             Configuration conf = context.getConfiguration();
             int n = conf.getInt("ngram.n", 2);
 
@@ -61,6 +61,7 @@ public class NGrams extends Configured implements Tool {
     @Override
     public int run(String[] args) throws Exception {
         Configuration conf = this.getConf();
+        System.out.println("The NGram N parameter is:" + conf.get("ngram.n"));
         Job job = new Job(conf, "NGrams");
         job.setJarByClass(NGrams.class);
         job.setMapperClass(NGMapper.class);
