@@ -16,17 +16,26 @@ public class NGrams {
             extends Mapper<Object, Text, Text, IntWritable>{
 
         private final static IntWritable one = new IntWritable(1);
-        private int n = 2;
         private Text ngram = new Text();
 
         public void map(Object key, Text value, Context context
         ) throws IOException, InterruptedException {
+            //Split string into array, removing punctuation & whitespace
             String[] words = value.toString().replaceAll("\\p{Punct}", " ").trim().split("\\s+");
 
+            //Get n from cmd line argument e.g.: -D ngram_n=2
+            Configuration conf = context.getConfiguration();
+            int n = conf.getInt("ngram_n", 2);
+
+            // Loop through line, if not possible to create any n-grams (i.e. line.length < n) then skip line
             for (int i=0; i<(words.length-(n-1)); i++) {
-                String word1 = words[i];
-                String word2 = words[i+(n-1)];
-                ngram.set(word1+" " +word2);
+                StringBuilder ngram_string = new StringBuilder();
+                //Build the n-gram
+                for (int j=0; j<n; j++) {
+                    ngram_string.append(words[i + j]).append(" ");
+                }
+                ngram_string.deleteCharAt(ngram_string.length()-1);
+                ngram.set(ngram_string.toString());
                 context.write(ngram, one);
             }
         }
@@ -50,7 +59,7 @@ public class NGrams {
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "word count");
+        Job job = Job.getInstance(conf, "Ngrams");
         job.setJarByClass(NGrams.class);
         job.setMapperClass(NGMapper.class);
         job.setReducerClass(NGReducer.class);
