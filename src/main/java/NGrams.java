@@ -105,6 +105,7 @@ public class NGrams extends Configured implements Tool {
             TextOutputFormat.setOutputPath(sortJob, sortedOutputPath);
 
             if (conf.get("ngram.sort", "none").equals("globalKey")) {
+                System.out.println("Output will be sorted globally by key");
                 TotalOrderPartitioner.setPartitionFile(sortJob.getConfiguration(), partitionPath);
                 InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.01, 1000);
                 InputSampler.writePartitionFile(sortJob, sampler);
