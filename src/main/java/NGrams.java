@@ -9,8 +9,11 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.InputSampler;
 import org.apache.hadoop.mapreduce.lib.partition.TotalOrderPartitioner;
 import org.apache.hadoop.util.Tool;
@@ -63,31 +66,57 @@ public class NGrams extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
+        Path inputPath = new Path(args[0]);
+        Path unsortedOutputPath = new Path(args[1]);
+        Path partitionPath = new Path(args[2]);
+        Path sortedOutputPath = new Path(args[3]);
+
         Configuration conf = this.getConf();
         System.out.println("The NGram N parameter is:" + conf.get("ngram.n", "2"));
         Job job = new Job(conf, "NGrams");
         job.setJarByClass(NGrams.class);
-        job.setInputFormatClass(TextInputFormat.class);
         job.setMapperClass(NGMapper.class);
         job.setReducerClass(NGReducer.class);
-        job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(IntWritable.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
-        FileInputFormat.addInputPath(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        FileInputFormat.addInputPath(job, inputPath);
+        FileOutputFormat.setOutputPath(job, unsortedOutputPath);
 
-        if (conf.getBoolean("ngram.sort.global", false)) {
-            TotalOrderPartitioner.setPartitionFile(job.getConfiguration(), new Path(conf.get("ngram.sort.seqfile", "./partition.seqfile")));
-            System.out.println("Output will be sorted globally across reducers");
-            job.setPartitionerClass(TotalOrderPartitioner.class);
-            InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.1, 2000);
-            InputSampler.writePartitionFile(job, sampler);
+        //output format set here as seqfile for input to next job
+        job.setOutputFormatClass(SequenceFileOutputFormat.class);
+
+        int exit_code = job.waitForCompletion(true) ? 0 : 1;
+
+        if (exit_code == 0) {
+            //Create a job for sorting
+            Job sortJob = new Job(conf, "Ngrams - Sorting");
+            sortJob.setJarByClass(NGrams.class);
+            sortJob.setMapperClass(Mapper.class);
+            sortJob.setReducerClass(Reducer.class);
+            sortJob.setMapOutputKeyClass(Text.class);
+            sortJob.setMapOutputValueClass(IntWritable.class);
+
+
+
+            sortJob.setInputFormatClass(SequenceFileInputFormat.class);
+            SequenceFileInputFormat.setInputPaths(sortJob, unsortedOutputPath);
+            sortJob.setOutputFormatClass(TextOutputFormat.class);
+            TextOutputFormat.setOutputPath(sortJob, sortedOutputPath);
+
+            if (conf.get("ngram.sort", "none").equals("globalKey")) {
+                TotalOrderPartitioner.setPartitionFile(sortJob.getConfiguration(), partitionPath);
+                InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.01, 1000);
+                InputSampler.writePartitionFile(sortJob, sampler);
+                sortJob.setPartitionerClass(TotalOrderPartitioner.class);
+            }
+
+            // Execute job and return status
+            exit_code = sortJob.waitForCompletion(true) ? 0:1;
         }
 
-        // Execute job and return status
-        return job.waitForCompletion(true) ? 0 : 1;
+        return exit_code;
+
     }
 
     public static void main(String[] args) throws Exception {
