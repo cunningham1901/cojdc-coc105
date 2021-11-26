@@ -77,7 +77,7 @@ public class NGrams extends Configured implements Tool {
         if (conf.getBoolean("ngram.sort.global", false)) {
             System.out.println("Output will be sorted globally across reducers");
             job.setPartitionerClass(TotalOrderPartitioner.class);
-            InputSampler.Sampler<Object, Text> sampler = new InputSampler.RandomSampler<>(0.1, 2000);
+            InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.1, 2000);
             InputSampler.writePartitionFile(job, sampler);
         }
 
