@@ -68,13 +68,16 @@ public class NGrams extends Configured implements Tool {
         job.setJarByClass(NGrams.class);
         job.setMapperClass(NGMapper.class);
         job.setReducerClass(NGReducer.class);
+        job.setMapOutputKeyClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        TotalOrderPartitioner.setPartitionFile(job.getConfiguration(), new Path(conf.get("ngram.sort.seqpath", "./partition.seqfile")));
 
         if (conf.getBoolean("ngram.sort.global", false)) {
+            TotalOrderPartitioner.setPartitionFile(job.getConfiguration(), new Path(conf.get("ngram.sort.seqfile", "./partition.seqfile")));
             System.out.println("Output will be sorted globally across reducers");
             job.setPartitionerClass(TotalOrderPartitioner.class);
             InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.1, 2000);
