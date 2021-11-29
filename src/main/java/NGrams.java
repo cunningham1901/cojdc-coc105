@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -27,18 +28,23 @@ public class NGrams extends Configured implements Tool {
         private final static IntWritable one = new IntWritable(1);
         private Text ngram = new Text();
 
+        //Compile regex now, to save time
+        private static final Pattern punctuation = Pattern.compile("\\p{Punct}");
+        private static final Pattern spaces = Pattern.compile("\\s+");
+
         public void map(Object key, Text value, Context context
         ) throws IOException, InterruptedException {
             //Split string into array, removing punctuation & whitespace
-            String[] words = value.toString().replaceAll("\\p{Punct}", " ").trim().split("\\s+");
+            String[] words = spaces.split(punctuation.matcher(value.toString()).replaceAll(" ").trim());
 
             //Get n from cmd line argument e.g.: -D ngram.n=2
             Configuration conf = context.getConfiguration();
             int n = conf.getInt("ngram.n", 2);
 
             // Loop through line, if not possible to create any n-grams (i.e. line.length < n) then skip line
+            StringBuilder ngram_string = new StringBuilder();  // Reusing string builder is faster
             for (int i=0; i<(words.length-(n-1)); i++) {
-                StringBuilder ngram_string = new StringBuilder();
+                ngram_string.setLength(0);  // Clear old string
                 //Build the n-gram
                 for (int j=0; j<n; j++) ngram_string.append(words[i + j]).append(" ");
                 ngram_string.deleteCharAt(ngram_string.length()-1);
