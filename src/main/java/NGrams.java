@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
@@ -35,7 +36,7 @@ public class NGrams extends Configured implements Tool {
         public void map(Object key, Text value, Context context
         ) throws IOException, InterruptedException {
             //Split string into array, removing punctuation & whitespace
-            String[] words = spaces.split(punctuation.matcher(value.toString()).replaceAll(" ").trim());
+            String[] words = spaces.split(punctuation.matcher(value.toString()).replaceAll(" ").trim().toLowerCase());
 
             //Get n from cmd line argument e.g.: -D ngram.n=2
             Configuration conf = context.getConfiguration();
