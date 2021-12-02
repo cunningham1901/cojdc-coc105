@@ -101,6 +101,11 @@ public class NGrams extends Configured implements Tool {
     }
 
     public static class NGCombineFileInputFormat extends CombineFileInputFormat<NGFileOffset, Text> {
+        public NGCombineFileInputFormat() {
+            super();
+            setMaxSplitSize(67108864);
+        }
+
         public RecordReader<NGFileOffset, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException {
             return new CombineFileRecordReader<NGFileOffset, Text>(
                     (CombineFileSplit)split, context, NGCombineRecordReader.class);
