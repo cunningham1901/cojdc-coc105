@@ -72,7 +72,7 @@ public class NGrams extends Configured implements Tool {
         }
     }
 
-    public static class NGFileOffset implements WritableComparable<> {
+    public static class NGFileOffset implements WritableComparable {
         private long offset;
         private String file;
 
