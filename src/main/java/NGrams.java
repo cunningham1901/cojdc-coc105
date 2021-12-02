@@ -110,7 +110,7 @@ public class NGrams extends Configured implements Tool {
     public static class NGCombineFileInputFormat extends CombineFileInputFormat<NGFileOffset, Text> {
         public NGCombineFileInputFormat() {
             super();
-            setMaxSplitSize(268435456); // Ensure more than 1 split is generated, for multiple map jobs
+            setMaxSplitSize(67108864); // Ensure more than 1 split is generated, for multiple map jobs
         }
 
         // Implement abstract class method
