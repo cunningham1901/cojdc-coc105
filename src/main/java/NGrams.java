@@ -1,3 +1,9 @@
+// Joseph Cunningham B825155
+// 21COC015 Coursework
+//
+// Output example for 1-grams, with global sorting: gs://cojdc-cc-lab-01/sortedoutput3
+// Output example for 2-grams, with global sorting: gs://cojdc-cc-lab-01/sortedoutput1
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -104,7 +110,7 @@ public class NGrams extends Configured implements Tool {
     public static class NGCombineFileInputFormat extends CombineFileInputFormat<NGFileOffset, Text> {
         public NGCombineFileInputFormat() {
             super();
-            setMaxSplitSize(67108864); // Ensure more than 1 split is generated, for multiple map jobs
+            setMaxSplitSize(268435456); // Ensure more than 1 split is generated, for multiple map jobs
         }
 
         // Implement abstract class method
