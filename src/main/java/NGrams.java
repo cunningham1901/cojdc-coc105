@@ -113,6 +113,12 @@ public class NGrams extends Configured implements Tool {
     }
 
     public class NGCombineFileInputFormat extends CombineFileInputFormat<Object, Text> {
+
+        public NGCombineFileInputFormat(){
+            super();
+            setMaxSplitSize(67108864); // 64 MB, default block size on hadoop
+        }
+
         public RecordReader<Object, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException {
             return new CombineFileRecordReader<>((CombineFileSplit) split, context, NGRecordReader.class);
         }
