@@ -27,10 +27,10 @@ public class NGrams extends Configured implements Tool {
     public static class NGMapper
             extends Mapper<Object, Text, Text, IntWritable> {
 
-        private final static IntWritable one = new IntWritable(1);
+        private final static IntWritable one = new IntWritable(1); //All ngrams have value 1 for summation
         private Text ngram = new Text();
 
-        //Compile regex now, to save time
+        //Compile regex now, to save time when parsing input lines
         private static final Pattern punctuation = Pattern.compile("\\p{Punct}");
         private static final Pattern spaces = Pattern.compile("\\s+");
 
@@ -49,7 +49,7 @@ public class NGrams extends Configured implements Tool {
                 ngram_string.setLength(0);  // Clear old string
                 //Build the n-gram
                 for (int j=0; j<n; j++) ngram_string.append(words[i + j]).append(" ");
-                ngram_string.deleteCharAt(ngram_string.length()-1);
+                ngram_string.deleteCharAt(ngram_string.length()-1); // remove last space (formatting)
                 ngram.set(ngram_string.toString());
                 context.write(ngram, one);
             }
@@ -63,6 +63,7 @@ public class NGrams extends Configured implements Tool {
         public void reduce(Text key, Iterable<IntWritable> values,
                            Context context
         ) throws IOException, InterruptedException {
+            // get the total number of given n-gram by summing all their values (1)
             int sum = 0;
             for (IntWritable val : values) {
                 sum += val.get();
@@ -72,12 +73,13 @@ public class NGrams extends Configured implements Tool {
         }
     }
 
+    // For combining input files as performance enhancement. Need to know offset per filename
     public static class NGFileOffset implements WritableComparable {
-        private long offset;
-        private String file;
+        private long offset; // Offset from start of file
+        private String file; // File name
 
         @Override
-        public int compareTo(Object o) {
+        public int compareTo(Object o) { //Implement comparability as required
             NGFileOffset that = (NGFileOffset)o;
             int fileComparison = this.file.compareTo(that.file);
             if (fileComparison == 0) {
@@ -87,14 +89,13 @@ public class NGrams extends Configured implements Tool {
         }
 
         @Override
-        public void write(DataOutput dataOutput) throws IOException {
+        public void write(DataOutput dataOutput) throws IOException { // Implement write method
             dataOutput.writeLong(offset);
             Text.writeString(dataOutput, file);
-
         }
 
         @Override
-        public void readFields(DataInput dataInput) throws IOException {
+        public void readFields(DataInput dataInput) throws IOException { // Implement read method
             this.offset = dataInput.readLong();
             this.file = Text.readString(dataInput);
         }
@@ -103,15 +104,17 @@ public class NGrams extends Configured implements Tool {
     public static class NGCombineFileInputFormat extends CombineFileInputFormat<NGFileOffset, Text> {
         public NGCombineFileInputFormat() {
             super();
-            setMaxSplitSize(67108864);
+            setMaxSplitSize(67108864); // Ensure more than 1 split is generated, for multiple map jobs
         }
 
+        // Implement abstract class method
         public RecordReader<NGFileOffset, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException {
             return new CombineFileRecordReader<NGFileOffset, Text>(
                     (CombineFileSplit)split, context, NGCombineRecordReader.class);
         }
     }
 
+    // Record reader that can read combined files, by using filename in additon to offset
     public static class NGCombineRecordReader extends RecordReader<NGFileOffset, Text> {
         private long startOffset; //offset of the chunk;
         private long end; //end of the chunk;
@@ -195,54 +198,54 @@ public class NGrams extends Configured implements Tool {
 
     @Override
     public int run(String[] args) throws Exception {
+
+        // Set file paths from cmdline arguments
         Path inputPath = new Path(args[0]);
         Path unsortedOutputPath = new Path(args[1]);
         Path partitionPath = new Path(args[2]);
         Path sortedOutputPath = new Path(args[3]);
 
+        //Ngram generation job setup
         Configuration conf = this.getConf();
-        System.out.println("The NGram N parameter is:" + conf.get("ngram.n", "2"));
+        System.out.println("The NGram N parameter is:" + conf.get("ngram.n", "2")); // Debugging
         Job job = new Job(conf, "NGrams");
         job.setJarByClass(NGrams.class);
         job.setMapperClass(NGMapper.class);
         job.setReducerClass(NGReducer.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
-
         FileInputFormat.addInputPath(job, inputPath);
         FileOutputFormat.setOutputPath(job, unsortedOutputPath);
-
-
         //Input format is set to combine files for speed, if desired
         if (conf.getBoolean("ngrams.combineInputFiles", false)) {
             job.setInputFormatClass(NGCombineFileInputFormat.class);
         }
         //output format set here as seqfile for input to next job
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
-
+        //Run job
         int exit_code = job.waitForCompletion(true) ? 0 : 1;
 
-        if (exit_code == 0) {
+        if (exit_code == 0) { // Check if ngram generation job completes
             //Create a job for sorting
             Job sortJob = new Job(conf, "Ngrams - Sorting");
             sortJob.setJarByClass(NGrams.class);
             sortJob.setMapperClass(Mapper.class);
             sortJob.setReducerClass(Reducer.class);
-            sortJob.setMapOutputKeyClass(Text.class);
+            sortJob.setMapOutputKeyClass(Text.class); //Required for TotalOrderParitioner
             sortJob.setMapOutputValueClass(IntWritable.class);
-
-
-
             sortJob.setInputFormatClass(SequenceFileInputFormat.class);
             SequenceFileInputFormat.setInputPaths(sortJob, unsortedOutputPath);
             sortJob.setOutputFormatClass(TextOutputFormat.class);
             TextOutputFormat.setOutputPath(sortJob, sortedOutputPath);
 
+            // Check how user wants to sort the file
             if (conf.get("ngram.sort", "none").equals("globalKey")) {
-                System.out.println("Output will be sorted globally by key");
+                System.out.println("Output will be sorted globally by key"); //Debug
+                //Setup Total Order Paritioner and InputSampler
                 TotalOrderPartitioner.setPartitionFile(sortJob.getConfiguration(), partitionPath);
                 InputSampler.Sampler<Text, IntWritable> sampler = new InputSampler.RandomSampler<>(0.01, 1000);
                 InputSampler.writePartitionFile(sortJob, sampler);
+                //Set total order as the partitioner for job
                 sortJob.setPartitionerClass(TotalOrderPartitioner.class);
             }
 
@@ -254,6 +257,7 @@ public class NGrams extends Configured implements Tool {
 
     }
 
+    //ToolRunner implemented, just call run()
     public static void main(String[] args) throws Exception {
         int res = ToolRunner.run(new NGrams(), args);
         System.exit(res);
