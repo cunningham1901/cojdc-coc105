@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
@@ -7,12 +6,8 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.lib.input.*;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
@@ -71,6 +66,47 @@ public class NGrams extends Configured implements Tool {
         }
     }
 
+    public class NGRecordReader extends RecordReader<Object, Text> {
+        private LineRecordReader lineRecordReader;
+        private int id;
+
+        public NGRecordReader(CombineFileSplit split, TaskAttemptContext context, int id){
+            this.id = id;
+            lineRecordReader = new LineRecordReader();
+        }
+
+        @Override
+        public void initialize(InputSplit split, TaskAttemptContext context) throws IOException {
+            CombineFileSplit combineFileSplit = (CombineFileSplit)split;
+            FileSplit fileSplit = new FileSplit(combineFileSplit.getPath(id), combineFileSplit.getOffset(id), combineFileSplit.getLength(id), combineFileSplit.getLocations());
+            lineRecordReader.initialize(fileSplit, context);
+        }
+
+        @Override
+        public boolean nextKeyValue() throws IOException {return lineRecordReader.nextKeyValue();}
+
+        @Override
+        public Object getCurrentKey() {return lineRecordReader.getCurrentKey();}
+
+        @Override
+        public Text getCurrentValue() {return lineRecordReader.getCurrentValue();}
+
+        @Override
+        public float getProgress() {
+            try {return lineRecordReader.getProgress();}
+            catch(Exception e) {return 0;}
+        }
+
+        @Override
+        public void close() throws IOException {lineRecordReader.close();}
+    }
+
+    public class NGCombineFileInputFormat extends CombineFileInputFormat<Object, Text> {
+        public RecordReader<Object, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException {
+            return new CombineFileRecordReader<>((CombineFileSplit)split, context, NGRecordReader.class);
+        }
+    }
+
     @Override
     public int run(String[] args) throws Exception {
         Path inputPath = new Path(args[0]);
@@ -90,6 +126,11 @@ public class NGrams extends Configured implements Tool {
         FileInputFormat.addInputPath(job, inputPath);
         FileOutputFormat.setOutputPath(job, unsortedOutputPath);
 
+
+        //Input format is set to combine files for speed, if desired
+        if (conf.getBoolean("ngrams.combineInputFiles", false)) {
+            job.setInputFormatClass(NGCombineFileInputFormat.class);
+        }
         //output format set here as seqfile for input to next job
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
 
