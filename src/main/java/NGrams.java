@@ -66,44 +66,56 @@ public class NGrams extends Configured implements Tool {
         }
     }
 
-    public class NGRecordReader extends RecordReader<Object, Text> {
-        private LineRecordReader lineRecordReader;
-        private int id;
-
-        public NGRecordReader(CombineFileSplit split, TaskAttemptContext context, int id){
-            this.id = id;
-            lineRecordReader = new LineRecordReader();
-        }
-
-        @Override
-        public void initialize(InputSplit split, TaskAttemptContext context) throws IOException {
-            CombineFileSplit combineFileSplit = (CombineFileSplit)split;
-            FileSplit fileSplit = new FileSplit(combineFileSplit.getPath(id), combineFileSplit.getOffset(id), combineFileSplit.getLength(id), combineFileSplit.getLocations());
-            lineRecordReader.initialize(fileSplit, context);
-        }
-
-        @Override
-        public boolean nextKeyValue() throws IOException {return lineRecordReader.nextKeyValue();}
-
-        @Override
-        public Object getCurrentKey() {return lineRecordReader.getCurrentKey();}
-
-        @Override
-        public Text getCurrentValue() {return lineRecordReader.getCurrentValue();}
-
-        @Override
-        public float getProgress() {
-            try {return lineRecordReader.getProgress();}
-            catch(Exception e) {return 0;}
-        }
-
-        @Override
-        public void close() throws IOException {lineRecordReader.close();}
-    }
 
     public class NGCombineFileInputFormat extends CombineFileInputFormat<Object, Text> {
+        public static class NGRecordReader extends RecordReader<Object, Text> {
+            private LineRecordReader lineRecordReader;
+            private int id;
+
+            public NGRecordReader(CombineFileSplit split, TaskAttemptContext context, int id) {
+                this.id = id;
+                lineRecordReader = new LineRecordReader();
+            }
+
+            @Override
+            public void initialize(InputSplit split, TaskAttemptContext context) throws IOException {
+                CombineFileSplit combineFileSplit = (CombineFileSplit) split;
+                FileSplit fileSplit = new FileSplit(combineFileSplit.getPath(id), combineFileSplit.getOffset(id), combineFileSplit.getLength(id), combineFileSplit.getLocations());
+                lineRecordReader.initialize(fileSplit, context);
+            }
+
+            @Override
+            public boolean nextKeyValue() throws IOException {
+                return lineRecordReader.nextKeyValue();
+            }
+
+            @Override
+            public Object getCurrentKey() {
+                return lineRecordReader.getCurrentKey();
+            }
+
+            @Override
+            public Text getCurrentValue() {
+                return lineRecordReader.getCurrentValue();
+            }
+
+            @Override
+            public float getProgress() {
+                try {
+                    return lineRecordReader.getProgress();
+                } catch (Exception e) {
+                    return 0;
+                }
+            }
+
+            @Override
+            public void close() throws IOException {
+                lineRecordReader.close();
+            }
+        }
+
         public RecordReader<Object, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException {
-            return new CombineFileRecordReader<>((CombineFileSplit)split, context, NGRecordReader.class);
+            return new CombineFileRecordReader<>((CombineFileSplit) split, context, NGRecordReader.class);
         }
     }
 
